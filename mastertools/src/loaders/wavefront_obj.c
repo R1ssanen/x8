@@ -88,35 +88,43 @@ bool mt_load_wavefront_obj(mt_string_view path, mt_entity *entity)
         return NULL;
     }
 
+    entity->meshes = mt_array_create(sizeof(mt_mesh));
+    mt_mesh *mesh = NULL;
     size_t base_hash = mt_hash_fnv_1a_64(path);
 
-    mt_array_of(float) vertices = mt_array_create(sizeof(float));
-    mt_array_of(float) uvs = mt_array_create(sizeof(float));
-    mt_array_of(float) normals = mt_array_create(sizeof(float));
-    mt_array_of(uint) indices = mt_array_create(sizeof(uint));
+    mesh = mt_array_push(&entity->meshes, NULL);
+    mesh->vertices = mt_array_create(sizeof(float));
+    mesh->uvs = mt_array_create(sizeof(float));
+    mesh->indices = mt_array_create(sizeof(uint));
 
     uint counter = 1;
     tokenizer line_tok = {.src = buffer, .offset = 0, .delimiter = '\n'};
-    char *line;
-    while ((line = next(&line_tok)))
-    {
-        line = trim_leading(line, " \t\v\f\r");
 
-        if ((line[0] == 'v') && (line[1] == ' '))
+    for (char *line; (line = next(&line_tok));)
+    {
+        if (false && line[0] == 'o')
+        {
+            mesh = mt_array_push(&entity->meshes, NULL);
+            mesh->vertices = mt_array_create(sizeof(float));
+            mesh->uvs = mt_array_create(sizeof(float));
+            mesh->indices = mt_array_create(sizeof(uint));
+        }
+
+        else if ((line[0] == 'v') && (line[1] == ' '))
         {
             tokenizer vertex_tok = {.src = trim_leading(line, " v\t\v\f\r"), .offset = 0, .delimiter = ' '};
 
             char *vertex = next(&vertex_tok);
             float x = strtof(vertex, NULL);
-            mt_array_push(&vertices, &x);
+            mt_array_push(&mesh->vertices, &x);
 
             vertex = next(&vertex_tok);
             float y = strtof(vertex, NULL);
-            mt_array_push(&vertices, &y);
+            mt_array_push(&mesh->vertices, &y);
 
             vertex = next(&vertex_tok);
             float z = strtof(vertex, NULL);
-            mt_array_push(&vertices, &z);
+            mt_array_push(&mesh->vertices, &z);
         }
 
         else if ((line[0] == 'v') && (line[1] == 't'))
@@ -124,50 +132,52 @@ bool mt_load_wavefront_obj(mt_string_view path, mt_entity *entity)
             tokenizer uv_tok = {.src = trim_leading(line, " vt\t\v\f\r"), .offset = 0, .delimiter = ' '};
 
             char *uv = next(&uv_tok);
-            float u = fabs(strtof(uv, NULL));
-            u = ((int)u > 1) ? u - truncf(u) : u;
-            mt_array_push(&uvs, &u);
+            float u = strtof(uv, NULL);
+            mt_array_push(&mesh->uvs, &u);
 
             uv = next(&uv_tok);
-            float v = fabs(strtof(uv, NULL));
-            v = ((int)v > 1) ? v - truncf(v) : v;
-            mt_array_push(&uvs, &v);
+            float v = -strtof(uv, NULL);
+            // if (v >= 0.f && v <= 1.f) // flip to match +y up convention
+            // {
+            //     v = 1.f - v;
+            // }
+            // else
+            // {
+            //     v = -v;
+            // }
+
+            mt_array_push(&mesh->uvs, &v);
         }
 
         else if (line[0] == 'f')
         {
             uint id = make_id(base_hash, counter++);
-            mt_array_push(&indices, &id);
+            mt_array_push(&mesh->indices, &id);
 
-            tokenizer vertex_tok = {.src = trim_leading(line, " f\t\v\f\r"), .offset = 0, .delimiter = ' '};
-            char *vertex;
-            while ((vertex = next(&vertex_tok)))
+            tokenizer face_tok = {.src = trim_leading(line, " f\t\v\f\r"), .offset = 0, .delimiter = ' '};
+
+            for (char *vertex; (vertex = next(&face_tok));)
             {
                 tokenizer index_tok = {.src = trim_leading(vertex, " \t\v\f\r"), .offset = 0, .delimiter = '/'};
 
                 char *id = next(&index_tok);
                 int vertex_id = strtoul(id, NULL, 10) - 1;
-                mt_array_push(&indices, &vertex_id);
+                mt_array_push(&mesh->indices, &vertex_id);
 
                 id = next(&index_tok);
-                int uv_id = strtoul(id, NULL, 10) - 1;
-                mt_array_push(&indices, &uv_id);
-                // int zero = 0;
-                // mt_array_push(&indices, &zero);
-
-                // next_id = next(&index_tok);
-                //    printf("/ %s\n", next_id);
+                if (id)
+                {
+                    int uv_id = strtoul(id, NULL, 10) - 1;
+                    mt_array_push(&mesh->indices, &uv_id);
+                }
+                else
+                {
+                    int zero = 0;
+                    mt_array_push(&mesh->indices, &zero);
+                }
             }
         }
     }
-
-    entity->meshes = mt_array_create(sizeof(mt_mesh));
-
-    mt_mesh *mesh = mt_array_push(&entity->meshes, NULL);
-    mesh->vertices = vertices;
-    mesh->uvs = uvs;
-    mesh->indices = indices;
-    mesh->normals = normals;
 
     free(buffer);
     return true;

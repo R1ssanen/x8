@@ -10,7 +10,7 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
-mt_texture *mt_texture_create(uint width, uint height, enum mt_texture_format format)
+mt_texture mt_texture_create(uint width, uint height, enum mt_texture_format format)
 {
     uint stride = 0;
     switch (format)
@@ -23,73 +23,77 @@ mt_texture *mt_texture_create(uint width, uint height, enum mt_texture_format fo
         break;
     default:
         LERROR("Unknown texture format '%d'", format);
-        return false;
+        return (mt_texture){};
     }
 
     size_t pitch = width * stride;
-    mt_texture *texture = _mm_malloc(sizeof(mt_texture) + pitch * height, 32);
-    MT_ASSERT(texture != NULL, "Could not allocate memory for texture");
+    byte *data = _mm_malloc(pitch * height, 32);
+    MT_ASSERT(data != NULL, "Could not allocate memory for texture");
 
-    texture->pitch = pitch;
-    texture->stride = stride;
-    texture->width = width;
-    texture->height = height;
-
-    return texture;
+    return (mt_texture){
+        .pitch = pitch,
+        .stride = stride,
+        .width = width,
+        .height = height,
+        .log2_width = (uint)log2f(width),
+        .data = data,
+    };
 }
 
 void mt_texture_free(mt_texture *texture)
 {
     if (texture)
     {
-        _mm_free(texture);
+        _mm_free(texture->data);
     }
 }
 
-mt_texture *mt_texture_load(mt_string_view path)
+mt_texture mt_texture_load(mt_string_view path)
 {
     int width, height, format;
-    stbi_uc *data = stbi_load(path.str, &width, &height, &format, 0);
+    stbi_uc *data = stbi_load(path.str, &width, &height, &format, STBI_rgb_alpha);
     if (!data)
     {
         LERROR("Failed to load texture '%s'", path.str);
-        return false;
+        return (mt_texture){}; // NULL;
     }
 
-    MT_ASSERT(format == STBI_rgb_alpha, "Non-supported texture format");
+    return (mt_texture){
+        .pitch = width * sizeof(int),
+        .stride = sizeof(int),
+        .width = width,
+        .height = height,
+        .log2_width = (uint)log2f(width),
+        .data = data,
+    };
+}
 
-    uint stride = 0;
-    switch (format)
+void mt_texture_load_cubemap(mt_string_view path, mt_texture cubemap[6])
+{
+    cubemap[0] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/nx.png"));
+    cubemap[1] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/px.png"));
+    cubemap[2] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/ny.png"));
+    cubemap[3] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/py.png"));
+    cubemap[4] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/nz.png"));
+    cubemap[5] = mt_texture_load(mt_string_refer_raw("resource/cubemap_1/pz.png"));
+
+    size_t total_size = 0;
+    for (size_t i = 0; i < 6; ++i)
     {
-    case STBI_grey:
-        stride = 1;
-        break;
-    case STBI_grey_alpha:
-        stride = 2;
-        break;
-    case STBI_rgb:
-        stride = 3;
-        break;
-    case STBI_rgb_alpha:
-        stride = 4;
-        break;
-    default:
-        MT_UNREACHABLE;
+        total_size += cubemap[i].pitch * cubemap[i].height;
     }
 
-    size_t pitch = width * stride;
-    size_t byte_count = pitch * height;
+    byte *new_data = _mm_malloc(total_size, 32);
+    byte *ptr = new_data;
 
-    mt_texture *texture = _mm_malloc(sizeof(mt_texture) + byte_count, 32);
-    MT_ASSERT(texture != NULL, "Could not allocate memory for texture");
-
-    memcpy(texture->data, data, byte_count);
-    texture->width = width;
-    texture->height = height;
-    texture->pitch = pitch;
-    texture->stride = stride;
-
-    return texture;
+    for (size_t i = 0; i < 6; ++i)
+    {
+        memcpy(ptr, cubemap[i].data, cubemap[i].pitch * cubemap[i].height);
+        // byte *tmp = cubemap[i].data;
+        cubemap[i].data = ptr;
+        ptr += cubemap[i].pitch * cubemap[i].height;
+        // _mm_free(tmp);
+    }
 }
 
 void mt_texture_clear(mt_texture *texture, uint clear)

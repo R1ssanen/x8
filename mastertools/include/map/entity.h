@@ -17,8 +17,8 @@ struct mt_entity
 {
     mt_array_of(mt_mesh) meshes;
     mt_library shader_lib;
-    rohan_shader_desc *desc;
-    mt_texture *texture;
+    rohan_shader_desc desc;
+    mt_texture texture;
     void *shader_instance;
     int depth_layer;
 };

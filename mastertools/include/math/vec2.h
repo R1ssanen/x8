@@ -91,6 +91,11 @@ static inline mvec2 mt_vec2_fma(mvec2 a, mvec2 b, mvec2 c)
     return (mvec2){.vec = _mm_fmadd_ps(a.vec, b.vec, c.vec)};
 }
 
+static inline mvec2 mt_vec2_load(const float *src)
+{
+    return (mvec2){.vec = _mm_blend_ps(_mm_loadu_ps(src), _mm_setzero_ps(), 0xc)};
+}
+
 static inline void mt_vec2_store(mvec2 a, float *dest)
 {
     _mm_storel_pi((__m64 *)dest, a.vec);

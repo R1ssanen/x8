@@ -11,6 +11,12 @@
 #include "types.h"
 #include "utility/file.h"
 
+static const byte default_tex_data[] = {0xff, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0x00,
+                                        0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff,
+                                        0x00, 0xff, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00,
+                                        0xff, 0xff, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
+                                        0xff, 0x00, 0xff, 0x00, 0x00, 0xff, 0x00, 0xff, 0xff, 0x00, 0xff, 0x00};
+
 void mt_entity_free(mt_entity *entity)
 {
     if (!entity)
@@ -24,9 +30,6 @@ void mt_entity_free(mt_entity *entity)
     }
 
     mt_array_free(&entity->meshes);
-
-    // NOTE: remember to fix
-    // entity->desc->destroy(entity->desc);
 
     _mm_free(entity->shader_instance);
 
@@ -85,7 +88,7 @@ mt_entity *parse_node_entity_json(const cJSON *object)
 
     void *get_spec = mt_library_load_symbol(&entity->shader_lib, mt_string_refer_raw("get_description"));
     entity->desc = ((rohan_get_description_fn)get_spec)();
-    entity->shader_instance = _mm_malloc(entity->desc->instance_size, 32);
+    entity->shader_instance = _mm_malloc(entity->desc.instance_size, 32);
 
     cJSON *layer = cJSON_GetObjectItemCaseSensitive(object, "layer");
     if (layer && cJSON_IsNumber(layer))
@@ -108,12 +111,14 @@ mt_entity *parse_node_entity_json(const cJSON *object)
     cJSON *texture = cJSON_GetObjectItemCaseSensitive(object, "texture");
     if (!texture)
     {
-        entity->texture = mt_texture_create(2, 2, MT_TEXTURE_RGBA8888);
-        uint *data = (uint *)entity->texture->data;
-        data[0] = 0xffffffff;
-        data[1] = 0xff00ffff;
-        data[2] = 0xff00ffff;
-        data[3] = 0xffffffff;
+        entity->texture = (mt_texture){
+            .width = 4,
+            .height = 4,
+            .pitch = 4 * sizeof(int),
+            .stride = sizeof(int),
+            .log2_width = 2,
+            .data = default_tex_data,
+        };
     }
     else
     {

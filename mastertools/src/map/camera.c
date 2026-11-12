@@ -11,6 +11,8 @@ mt_camera *parse_node_camera_json(struct cJSON *object, mt_map *map)
     int camera_id = map->cameras.size;
     mt_camera *camera = mt_array_push(&map->cameras, NULL);
 
+    camera->center = mt_vec3(0.f, 0.f, 0.f);
+
     cJSON *active = cJSON_GetObjectItemCaseSensitive(object, "active");
     if (active && (active->valueint != 0))
     {
@@ -68,7 +70,7 @@ mt_camera *parse_node_camera_json(struct cJSON *object, mt_map *map)
     cJSON *far = cJSON_GetObjectItemCaseSensitive(object, "far");
     if (!far || !cJSON_IsNumber(far))
     {
-        camera->far = 100.f;
+        camera->far = 50.f;
     }
     else
     {
@@ -82,8 +84,8 @@ mvec3 mt_camera_get_forward(mt_camera *camera)
 {
     mquat yaw = mt_quat_axis_angle(mt_vec3(0.f, 1.f, 0.f), camera->angle.y);
 
-    mvec3 forward = mt_quat_rotate_vec3(yaw, mt_vec3(0.f, 0.f, -1.f));
-    mvec3 local_right = mt_vec3_cross(mt_vec3_normalize(forward), mt_vec3(0.f, 1.f, 0.f));
+    mvec3 forward = mt_vec3_normalize(mt_quat_rotate_vec3(yaw, mt_vec3(0.f, 0.f, -1.f)));
+    mvec3 local_right = mt_vec3_cross(forward, mt_vec3(0.f, 1.f, 0.f));
 
     mquat pitch = mt_quat_axis_angle(local_right, camera->angle.x);
     return mt_vec3_normalize(mt_quat_rotate_vec3(pitch, forward));

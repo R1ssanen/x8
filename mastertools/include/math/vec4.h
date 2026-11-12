@@ -59,7 +59,7 @@ static inline mvec4 mt_vec4_div(mvec4 a, mvec4 b)
 
 static inline mvec4 mt_vec4_negate(mvec4 a)
 {
-    return (mvec4){.vec = _mm_mul_ps(a.vec, _mm_set1_ps(-1.f))};
+    return (mvec4){.vec = _mm_sub_ps(_mm_setzero_ps(), a.vec)};
 }
 
 static inline float mt_vec4_dot(mvec4 a, mvec4 b)

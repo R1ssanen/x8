@@ -74,12 +74,12 @@ static inline mmat4 mt_unview(mvec3 eye, mvec3 forward)
 static inline mmat4 mt_project(float r_fov, float aspect, float near, float far)
 {
     float f = 1.f / tanf(0.5f * r_fov);
-    float inv_near_far = 1.f / (near - far);
+    float far_near_far = far / (near - far);
 
     return (mmat4){
         .m0 = mt_vec4(f / aspect, 0.f, 0.f, 0.f),
         .m1 = mt_vec4(0.f, f, 0.f, 0.f),
-        .m2 = mt_vec4(0.f, 0.f, (near + far) * inv_near_far, (2.f * far * near) * inv_near_far),
+        .m2 = mt_vec4(0.f, 0.f, far_near_far, near * far_near_far),
         .m3 = mt_vec4(0.f, 0.f, -1.f, 0.f),
     };
 }

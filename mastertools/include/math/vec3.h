@@ -102,6 +102,11 @@ static inline mvec3 mt_vec3_fma(mvec3 a, mvec3 b, mvec3 c)
     return (mvec3){.vec = _mm_fmadd_ps(a.vec, b.vec, c.vec)};
 }
 
+static inline mvec3 mt_vec3_fms(mvec3 a, mvec3 b, mvec3 c)
+{
+    return (mvec3){.vec = _mm_fmsub_ps(a.vec, b.vec, c.vec)};
+}
+
 static inline mvec3 mt_vec3_load(const float *src)
 {
     return (mvec3){.vec = _mm_blend_ps(_mm_loadu_ps(src), _mm_setzero_ps(), 0x8)};

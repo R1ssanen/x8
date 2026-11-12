@@ -1,10 +1,15 @@
 #include "system/text.h"
 
+#define ROHAN_DEFINE_SHADER
+#define ROHAN_ATTRIB_COUNT 2
+#define ROHAN_NO_DEPTH
+#define ROHAN_USE_DISCARD
 #include "rohan.h"
+
 #include "texture.h"
 
 // clang-format on
-static const char font_data[] = {
+static const unsigned char font_data[] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -637,37 +642,34 @@ struct default_shader_data
     __m256 u, v;
     __m256i color;
     __m256i glyph_offset;
-    uint8_t *pixels;
+    mt_texture pixels;
 };
 
-static inline void default_shader(void *restrict instance, const rohan_raster_state *restrict state)
+__m256i frag_main(void *restrict instance, const rohan_raster_state *restrict state, __m256 *restrict discard)
 {
     default_shader_data *data = instance;
 
-    __m256i tx = _mm256_cvtps_epi32(data->u);
-    __m256i ty = _mm256_slli_epi32(_mm256_cvtps_epi32(data->v), 4);
-    __m256i index = _mm256_add_epi32(_mm256_add_epi32(ty, tx), data->glyph_offset);
+    const __m256 half = _mm256_set1_ps(0.5f);
+    const __m256 side_minus_1 = _mm256_set1_ps(15.f);
 
-    __m256i mask = _mm256_slli_epi32(_mm256_i32gather_epi32((int *)font_data, index, 1), 31);
-    mask = _mm256_and_si256(mask, state->mask);
-    _mm256_maskstore_epi32((int *)(data->pixels + state->byte_offset), mask, data->color);
+    __m256i iu = _mm256_cvttps_epi32(_mm256_fmadd_ps(data->u, side_minus_1, half));
+    __m256i iv = _mm256_cvttps_epi32(_mm256_fmadd_ps(data->v, side_minus_1, half));
+
+    __m256i index = _mm256_add_epi32(_mm256_add_epi32(iu, _mm256_slli_epi32(iv, 4)), data->glyph_offset);
+    *discard = _mm256_castsi256_ps(_mm256_slli_epi32(_mm256_i32gather_epi32((int *)font_data, index, 1), 31));
+
+    return data->color;
 }
 
 void mt_render_text_2d_default(mt_texture *pixels, mt_string_view text, int x, int y, int w, int h, int color)
 {
     default_shader_data data;
-    data.pixels = pixels->data;
+    data.pixels = *pixels;
     data.color = _mm256_set1_epi32(color);
 
     rohan_shader_desc desc;
-    desc.main = default_shader;
-    desc.attribute_count = 2;
     desc.attribute_offset = offsetof(default_shader_data, u);
-
-    __m256 temp0[2], temp1[2], temp2[2];
-    desc._attr_dx = temp0;
-    desc._attr_dy = temp1;
-    desc._attr_0 = temp2;
+    desc.uniform_offsets = (size_t[]){offsetof(default_shader_data, pixels)};
 
     for (size_t i = 0; i < text.len; ++i)
     {
@@ -677,11 +679,11 @@ void mt_render_text_2d_default(mt_texture *pixels, mt_string_view text, int x, i
         int x1 = x0 + w;
 
         float vertex0[] = {x0, y, 0.f, 0.f};
-        float vertex1[] = {x1, y, 15.f, 0.f};
-        float vertex2[] = {x1, y + h, 15.f, 15.f};
-        float vertex3[] = {x0, y + h, 0.f, 15.f};
+        float vertex1[] = {x1, y, 1.f, 0.f};
+        float vertex2[] = {x1, y + h, 1.f, 1.f};
+        float vertex3[] = {x0, y + h, 0.f, 1.f};
 
-        rohan_rasterize(&desc, &data, pixels->pitch, pixels->stride, vertex0, vertex1, vertex2);
-        rohan_rasterize(&desc, &data, pixels->pitch, pixels->stride, vertex0, vertex2, vertex3);
+        rohan_render(&desc, &data, pixels->pitch, pixels->stride, vertex0, vertex1, vertex2);
+        rohan_render(&desc, &data, pixels->pitch, pixels->stride, vertex0, vertex2, vertex3);
     }
 }

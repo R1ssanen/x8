@@ -11,6 +11,7 @@ struct mt_map;
 typedef struct mt_camera mt_camera;
 struct mt_camera
 {
+    mvec3 center;
     mvec3 pos;
     mvec3 angle;
     float near;

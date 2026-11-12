@@ -12,7 +12,6 @@ void mt_mesh_free(mt_mesh *mesh)
     }
 
     mt_array_free(&mesh->vertices);
-    mt_array_free(&mesh->normals);
     mt_array_free(&mesh->uvs);
     mt_array_free(&mesh->indices);
 

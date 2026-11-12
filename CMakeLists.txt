@@ -40,14 +40,9 @@ target_compile_options(mastertools PRIVATE
     $<$<CONFIG:Release>: -O3>
 )
 
+target_include_directories(mastertools PRIVATE vendor)
+
 find_package(SDL3 REQUIRED)
-add_subdirectory("vendor/rohan" EXCLUDE_FROM_ALL)
+target_link_libraries(mastertools PRIVATE m SDL3::SDL3)
 
-target_link_libraries(mastertools PRIVATE m SDL3::SDL3 rohan)
-
-add_custom_command(TARGET mastertools
-    POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different $<TARGET_FILE:rohan> ${CMAKE_CURRENT_BINARY_DIR}
-)
-
-add_subdirectory("test_shader")
+add_subdirectory(shaders)

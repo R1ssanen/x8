@@ -18,14 +18,17 @@ struct mt_texture
     uint width;
     uint height;
     uint stride;
-    byte data[];
+    uint log2_width;
+    byte *data;
 };
 
-mt_texture *mt_texture_create(uint w, uint h, enum mt_texture_format format);
+mt_texture mt_texture_create(uint w, uint h, enum mt_texture_format format);
 
 void mt_texture_free(mt_texture *texture);
 
-mt_texture *mt_texture_load(mt_string_view path);
+mt_texture mt_texture_load(mt_string_view path);
+
+void mt_texture_load_cubemap(mt_string_view path, mt_texture cubemap[6]);
 
 void mt_texture_clear(mt_texture *texture, uint clear);
 
